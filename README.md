@@ -6,6 +6,14 @@ Because many properties feature split-irrigation zones (such as a single zone co
 
 ---
 
+## App Previews
+
+| Desktop Dashboard | Export Preview | Mobile Version |
+| :---: | :---: | :---: |
+| ![Desktop Dashboard](image1.png) | ![Export Preview](image2.png) | ![Mobile Version](image3_mobile.png) |
+
+---
+
 ## Key Features
 
 - **Multi-Polygon Grouping:** Draw and link several disconnected shapes to a single irrigation zone.
