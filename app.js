@@ -1383,21 +1383,36 @@ function setupPolygonEvents(polygon, zoneId) {
     }
   });
 
-  // Long press / Touch hold deletion
+  // Long press / Touch hold deletion (opens context menu)
   google.maps.event.addListener(polygon, 'mousedown', (event) => {
     longPressActive = false;
     if (pressTimer) clearTimeout(pressTimer);
+
+    // Extract screen coordinates for context menu position
+    let x = window.innerWidth / 2;
+    let y = window.innerHeight / 2;
+    if (event.domEvent) {
+      const de = event.domEvent;
+      if (de.clientX !== undefined && de.clientY !== undefined) {
+        x = de.clientX;
+        y = de.clientY;
+      } else if (de.touches && de.touches.length > 0) {
+        x = de.touches[0].clientX;
+        y = de.touches[0].clientY;
+      } else if (de.changedTouches && de.changedTouches.length > 0) {
+        x = de.changedTouches[0].clientX;
+        y = de.changedTouches[0].clientY;
+      }
+    }
 
     pressTimer = setTimeout(() => {
       longPressActive = true;
       selectZone(zoneId);
       selectPolygon(polygon);
 
-      // Trigger deletion confirmation after a micro-delay to let the event loop process state
+      // Trigger context menu after a micro-delay to let the event loop process state
       setTimeout(() => {
-        if (confirm('Are you sure you want to delete this shape?')) {
-          deletePolygon(polygon);
-        }
+        showContextMenu(x, y, polygon);
       }, 50);
     }, 750);
   });
