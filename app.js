@@ -638,8 +638,12 @@ function bindAppEventListeners() {
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
       if (state.selectedPolygon) {
         e.preventDefault();
-        if (confirm('Are you sure you want to delete the selected shape?')) {
-          deletePolygon(state.selectedPolygon);
+        try {
+          if (confirm('Are you sure you want to delete the selected shape?')) {
+            deletePolygon(state.selectedPolygon);
+          }
+        } catch (err) {
+          console.error('Error in keydown delete:', err);
         }
       }
     }
@@ -904,6 +908,8 @@ function bindAppEventListeners() {
       console.error(e);
       alert('Failed to parse JSON. Please make sure you copied the entire text content from the link.');
     }
+  });
+
   // Hide context menu on click anywhere on the page
   document.addEventListener('click', (e) => {
     const menu = document.getElementById('map-context-menu');
@@ -1213,8 +1219,19 @@ function selectPolygon(polygon) {
 function deletePolygon(polygon) {
   if (!polygon) return;
 
+  // Disable editing and dragging to cleanly remove edit handles/markers
+  polygon.setEditable(false);
+  polygon.setOptions({ editable: false, draggable: false });
+
   // Remove from map
   polygon.setMap(null);
+
+  // Clear listeners to prevent memory leaks
+  google.maps.event.clearInstanceListeners(polygon);
+  const path = polygon.getPath();
+  if (path) {
+    google.maps.event.clearInstanceListeners(path);
+  }
 
   // Remove from state
   state.zones.forEach(z => {
@@ -1274,7 +1291,10 @@ function setupPolygonEvents(polygon, zoneId) {
  */
 function showContextMenu(x, y, polygon) {
   const menu = document.getElementById('map-context-menu');
-  if (!menu) return;
+  if (!menu) {
+    console.warn('map-context-menu element not found in DOM!');
+    return;
+  }
 
   menu.style.left = `${x}px`;
   menu.style.top = `${y}px`;
@@ -1386,20 +1406,16 @@ function bindPolygonPathListeners(polygon, zoneId) {
 }
 
 /**
- * Delete a specific polygon of a zone
+ * Delete a specific polygon of a zone by index
  */
-function deletePolygon(zoneId, index) {
+function deletePolygonByIndex(zoneId, index) {
   const zone = state.zones.find(z => z.id === zoneId);
   if (!zone) return;
 
   const polygon = zone.polygons[index];
   if (polygon) {
-    polygon.setMap(null);
-    zone.polygons.splice(index, 1);
+    deletePolygon(polygon);
   }
-
-  renderZones();
-  saveZonesData();
 }
 
 /**
@@ -1660,7 +1676,7 @@ function renderZones() {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           const index = parseInt(btn.dataset.index);
-          deletePolygon(zone.id, index);
+          deletePolygonByIndex(zone.id, index);
         });
       });
 
