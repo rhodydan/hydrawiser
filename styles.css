@@ -319,7 +319,8 @@ h1, h2, h3, h4, h5, h6 {
   gap: 6px;
 }
 
-.form-group label {
+.form-group label,
+.form-label {
   font-family: var(--font-heading);
   font-size: 13px;
   font-weight: 500;
@@ -1630,6 +1631,32 @@ textarea:focus {
 .context-menu-item.btn-danger:hover {
   background-color: rgba(239, 68, 68, 0.15);
   color: #ef4444;
+}
+
+/* Custom Autocomplete Component Styling */
+gmp-place-autocomplete {
+  width: 100%;
+  display: block;
+  box-sizing: border-box;
+  color-scheme: dark;
+}
+
+.form-group gmp-place-autocomplete {
+  background-color: var(--bg-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 6px !important;
+  color: white !important;
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+.floating-search gmp-place-autocomplete {
+  background: none !important;
+  border: none !important;
+  flex: 1;
+  color: white !important;
+  font-family: var(--font-body);
+  font-size: 14px;
 }
 
 

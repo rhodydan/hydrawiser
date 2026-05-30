@@ -41,8 +41,14 @@ const state = {
 
 // Global Maps references
 let map;
-let drawingManager;
 let autocomplete;
+let customDrawing = {
+  zoneId: null,
+  path: [],
+  polyline: null,
+  firstPointMarker: null,
+  listeners: []
+};
 
 // Irrigation Sprinkler Presets
 const SPRINKLER_PRESETS = [
@@ -198,25 +204,32 @@ function handleConnectKey() {
       document.getElementById('setup-step-2').classList.remove('hidden');
       
       // Bind type-ahead geocoding to the Address input
-      const setupAddressInput = document.getElementById('input-setup-address');
-      setupAddressAutocomplete = new google.maps.places.Autocomplete(setupAddressInput, {
-        types: ['geocode', 'establishment'],
-        fields: ['geometry', 'formatted_address']
-      });
+      const setupAddressAutocompleteEl = document.getElementById('input-setup-address');
+      if (setupAddressAutocompleteEl) {
+        setupAddressAutocompleteEl.includedPrimaryTypes = ['geocode', 'establishment'];
 
-      setupAddressAutocomplete.addListener('place_changed', () => {
-        const place = setupAddressAutocomplete.getPlace();
-        const finishBtn = document.getElementById('btn-setup-finish');
-        
-        if (place.geometry && place.geometry.location) {
-          state.startLat = place.geometry.location.lat();
-          state.startLng = place.geometry.location.lng();
-          state.address = place.formatted_address || setupAddressInput.value;
-          finishBtn.removeAttribute('disabled');
-        } else {
-          finishBtn.setAttribute('disabled', 'true');
-        }
-      });
+        setupAddressAutocompleteEl.addEventListener('gmp-select', async (e) => {
+          const finishBtn = document.getElementById('btn-setup-finish');
+          try {
+            const place = e.placePrediction.toPlace();
+            await place.fetchFields({
+              fields: ['location', 'formattedAddress']
+            });
+            
+            if (place.location) {
+              state.startLat = place.location.lat();
+              state.startLng = place.location.lng();
+              state.address = place.formattedAddress || '';
+              finishBtn.removeAttribute('disabled');
+            } else {
+              finishBtn.setAttribute('disabled', 'true');
+            }
+          } catch (err) {
+            console.error('Error fetching setup address:', err);
+            finishBtn.setAttribute('disabled', 'true');
+          }
+        });
+      }
     })
     .catch(err => {
       console.error(err);
@@ -278,7 +291,7 @@ function loadGoogleMaps(apiKey) {
     }, 6000);
 
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=drawing,geometry,places&callback=initMap`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,places&callback=initMap&loading=async`;
     script.async = true;
     script.defer = true;
     
@@ -336,38 +349,32 @@ function setupApplication() {
   setupAutocomplete();
 
   // Setup Autocomplete on Sidebar config tab starting address
-  const configAddressInput = document.getElementById('config-address');
-  if (configAddressInput) {
-    configAddressInput.value = state.address;
-    const configAutocomplete = new google.maps.places.Autocomplete(configAddressInput, {
-      types: ['geocode', 'establishment'],
-      fields: ['geometry', 'formatted_address']
-    });
+  const configAddressAutocompleteEl = document.getElementById('config-address');
+  if (configAddressAutocompleteEl) {
+    configAddressAutocompleteEl.placeholder = state.address || 'Type starting address...';
+    configAddressAutocompleteEl.includedPrimaryTypes = ['geocode', 'establishment'];
     
-    configAutocomplete.addListener('place_changed', () => {
-      const place = configAutocomplete.getPlace();
-      if (place.geometry && place.geometry.location) {
-        state.startLat = place.geometry.location.lat();
-        state.startLng = place.geometry.location.lng();
-        state.address = place.formatted_address || configAddressInput.value;
+    configAddressAutocompleteEl.addEventListener('gmp-select', async (e) => {
+      try {
+        const place = e.placePrediction.toPlace();
+        await place.fetchFields({
+          fields: ['location', 'formattedAddress']
+        });
+        
+        if (place.location) {
+          state.startLat = place.location.lat();
+          state.startLng = place.location.lng();
+          state.address = place.formattedAddress || '';
+          configAddressAutocompleteEl.placeholder = state.address;
+        }
+      } catch (err) {
+        console.error('Error fetching config address details:', err);
       }
     });
   }
 
-  // Setup Drawing Manager
-  drawingManager = new google.maps.drawing.DrawingManager({
-    drawingMode: null, // Start in pan mode
-    drawingControl: false, // We use our own UI buttons
-    polygonOptions: {
-      clickable: true,
-      editable: true,
-      zIndex: 1
-    }
-  });
-  drawingManager.setMap(map);
-
-  // Drawing Complete Event
-  google.maps.event.addListener(drawingManager, 'polygoncomplete', handlePolygonDrawComplete);
+  // Initialize custom drawing listeners list
+  customDrawing.listeners = [];
 
   // Bind Main UI Event Listeners
   bindAppEventListeners();
@@ -384,48 +391,75 @@ function setupApplication() {
  */
 function setupAutocomplete() {
   const searchInput = document.getElementById('address-search-input');
+  if (!searchInput) return;
+  
   searchInput.removeAttribute('disabled');
+  searchInput.includedPrimaryTypes = ['geocode', 'establishment'];
 
-  autocomplete = new google.maps.places.Autocomplete(searchInput, {
-    types: ['geocode', 'establishment'],
-    fields: ['geometry', 'formatted_address']
-  });
+  // Bind Autocomplete to Map Viewport using locationBias
+  if (map) {
+    searchInput.locationBias = map.getBounds();
+    google.maps.event.addListener(map, 'bounds_changed', () => {
+      searchInput.locationBias = map.getBounds();
+    });
+  }
 
-  // Bind Autocomplete to Map Viewport
-  autocomplete.bindTo('bounds', map);
+  searchInput.addEventListener('gmp-select', async (e) => {
+    try {
+      const place = e.placePrediction.toPlace();
+      await place.fetchFields({
+        fields: ['location', 'formattedAddress']
+      });
 
-  autocomplete.addListener('place_changed', () => {
-    const place = autocomplete.getPlace();
-    if (!place.geometry || !place.geometry.location) {
-      alert("No geometry found for this location.");
-      return;
+      if (!place.location) {
+        alert("No geometry found for this location.");
+        return;
+      }
+
+      // Pan & Zoom Map
+      map.setCenter(place.location);
+      map.setZoom(20);
+
+      // Save address label
+      state.address = place.formattedAddress || '';
+      
+      // Update legend UI & static export input
+      document.getElementById('legend-overlay-subtitle').textContent = state.address;
+      document.getElementById('export-subtitle-input').value = state.address;
+      
+      // Show clear button
+      document.getElementById('btn-clear-search').classList.remove('hidden');
+
+      // Update config coordinates so page refreshes center here
+      updateConfigCoordinates(place.location.lat(), place.location.lng());
+    } catch (err) {
+      console.error('Error fetching search address:', err);
     }
-
-    // Pan & Zoom Map
-    map.setCenter(place.geometry.location);
-    map.setZoom(20);
-
-    // Save address label
-    state.address = place.formatted_address || searchInput.value;
-    
-    // Update legend UI & static export input
-    document.getElementById('legend-overlay-subtitle').textContent = state.address;
-    document.getElementById('export-subtitle-input').value = state.address;
-    
-    // Show clear button
-    document.getElementById('btn-clear-search').classList.remove('hidden');
-
-    // Update config coordinates so page refreshes center here
-    updateConfigCoordinates(place.geometry.location.lat(), place.geometry.location.lng());
   });
 
   // Clear Search button
   const clearBtn = document.getElementById('btn-clear-search');
-  clearBtn.addEventListener('click', () => {
-    searchInput.value = '';
-    clearBtn.classList.add('hidden');
+  // Avoid duplicating clear button listeners if setupAutocomplete runs again
+  const newClearBtn = clearBtn.cloneNode(true);
+  clearBtn.parentNode.replaceChild(newClearBtn, clearBtn);
+  
+  newClearBtn.addEventListener('click', () => {
+    // Re-create the search element to fully clear the custom element's closed Shadow DOM state
+    const freshSearchInput = document.createElement('gmp-place-autocomplete');
+    freshSearchInput.id = 'address-search-input';
+    freshSearchInput.placeholder = 'Search property address...';
+    
+    const oldSearchInput = document.getElementById('address-search-input');
+    if (oldSearchInput) {
+      oldSearchInput.parentNode.replaceChild(freshSearchInput, oldSearchInput);
+    }
+
+    newClearBtn.classList.add('hidden');
     state.address = '';
     document.getElementById('legend-overlay-subtitle').textContent = 'Address Placeholder';
+
+    // Re-initialize autocomplete and bindings on the fresh element
+    setupAutocomplete();
   });
 }
 
@@ -436,9 +470,9 @@ function updateConfigCoordinates(lat, lng) {
   state.startLat = lat;
   state.startLng = lng;
   
-  const configAddressInput = document.getElementById('config-address');
-  if (configAddressInput) {
-    configAddressInput.value = state.address;
+  const configAddressAutocompleteEl = document.getElementById('config-address');
+  if (configAddressAutocompleteEl) {
+    configAddressAutocompleteEl.placeholder = state.address || 'Type starting address...';
   }
   
   const savedConfig = localStorage.getItem('hydrawise_map_config');
@@ -464,6 +498,12 @@ function bindAppEventListeners() {
 
   // Cancel Drawing button
   document.getElementById('btn-cancel-drawing').addEventListener('click', cancelDrawingMode);
+
+  // Finish Drawing button
+  const finishDrawingBtn = document.getElementById('btn-finish-drawing');
+  if (finishDrawingBtn) {
+    finishDrawingBtn.addEventListener('click', finishCustomDrawing);
+  }
 
   // Export controls
   document.getElementById('btn-export-trigger').addEventListener('click', openExportModal);
@@ -1329,62 +1369,186 @@ function hideContextMenu() {
 /**
  * Toggle drawing mode on/off
  */
+/**
+ * Add a point/vertex to the custom drawing path
+ */
+function addVertexToDrawing(latLng, zone) {
+  customDrawing.path.push(latLng);
+  customDrawing.polyline.setPath(customDrawing.path);
+
+  // Mark the first point with a small circle so clicking it completes the drawing
+  if (customDrawing.path.length === 1) {
+    customDrawing.firstPointMarker = new google.maps.Marker({
+      position: latLng,
+      map: map,
+      title: 'Click here to finish shape',
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 6,
+        fillColor: zone.color,
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2
+      },
+      zIndex: 999
+    });
+
+    google.maps.event.addListener(customDrawing.firstPointMarker, 'click', (e) => {
+      if (customDrawing.path.length >= 3) {
+        finishCustomDrawing();
+      }
+    });
+  }
+
+  // Show "Finish Shape" button if we have at least 3 points
+  const finishBtn = document.getElementById('btn-finish-drawing');
+  if (finishBtn) {
+    if (customDrawing.path.length >= 3) {
+      finishBtn.classList.remove('hidden');
+    } else {
+      finishBtn.classList.add('hidden');
+    }
+  }
+}
+
+/**
+ * Toggle custom drawing mode on/off
+ */
 function startDrawingMode(zoneId) {
   selectZone(zoneId);
   const zone = state.zones.find(z => z.id === zoneId);
   if (!zone) return;
 
   state.isDrawing = true;
+  customDrawing.zoneId = zoneId;
+  customDrawing.path = [];
+  customDrawing.listeners = [];
 
-  // Configure DrawingManager for the active zone style
-  drawingManager.setOptions({
-    drawingMode: google.maps.drawing.OverlayType.POLYGON,
-    polygonOptions: {
+  // Create temporary Polyline representing the shape boundary being drawn
+  customDrawing.polyline = new google.maps.Polyline({
+    strokeColor: zone.color,
+    strokeOpacity: 0.8,
+    strokeWeight: 3,
+    map: map
+  });
+
+  // Temporarily disable map double-click zoom to handle manual double-click completion
+  map.setOptions({ disableDoubleClickZoom: true });
+
+  // Map Click Listener to add vertices
+  const clickListener = google.maps.event.addListener(map, 'click', (event) => {
+    addVertexToDrawing(event.latLng, zone);
+  });
+  customDrawing.listeners.push(clickListener);
+
+  // Map Mousemove Listener to draw drag line preview to current cursor location
+  const moveListener = google.maps.event.addListener(map, 'mousemove', (event) => {
+    if (customDrawing.path.length > 0) {
+      const previewPath = [...customDrawing.path, event.latLng];
+      customDrawing.polyline.setPath(previewPath);
+    }
+  });
+  customDrawing.listeners.push(moveListener);
+
+  // Map Double Click Listener to finish shape
+  const dblclickListener = google.maps.event.addListener(map, 'dblclick', (event) => {
+    if (customDrawing.path.length >= 3) {
+      finishCustomDrawing();
+    }
+  });
+  customDrawing.listeners.push(dblclickListener);
+
+  // Display drawing banner
+  document.getElementById('drawing-banner-text').textContent = `Drawing mode active: Draw boundaries for ${zone.name}. Click map to add vertices, double-click or click the first point to complete.`;
+  document.getElementById('drawing-banner').classList.remove('hidden');
+}
+
+/**
+ * Cancel custom drawing mode and reset state cleanups
+ */
+function cancelDrawingMode() {
+  state.isDrawing = false;
+  document.getElementById('drawing-banner').classList.add('hidden');
+
+  const finishBtn = document.getElementById('btn-finish-drawing');
+  if (finishBtn) finishBtn.classList.add('hidden');
+
+  // Re-enable map double click zoom
+  if (map) {
+    map.setOptions({ disableDoubleClickZoom: false });
+  }
+
+  // Clear event listeners
+  if (customDrawing.listeners) {
+    customDrawing.listeners.forEach(l => google.maps.event.removeListener(l));
+    customDrawing.listeners = [];
+  }
+
+  // Clear polyline
+  if (customDrawing.polyline) {
+    customDrawing.polyline.setMap(null);
+    customDrawing.polyline = null;
+  }
+
+  // Clear first point marker
+  if (customDrawing.firstPointMarker) {
+    customDrawing.firstPointMarker.setMap(null);
+    customDrawing.firstPointMarker = null;
+  }
+
+  customDrawing.path = [];
+  customDrawing.zoneId = null;
+}
+
+/**
+ * Complete the custom drawing shape and save to active zone
+ */
+function finishCustomDrawing() {
+  const zone = state.zones.find(z => z.id === customDrawing.zoneId);
+  if (!zone) {
+    cancelDrawingMode();
+    return;
+  }
+
+  // Filter out any consecutive duplicate points (e.g. from rapid double-click)
+  const cleanPath = [];
+  customDrawing.path.forEach(pt => {
+    if (cleanPath.length === 0) {
+      cleanPath.push(pt);
+    } else {
+      const prev = cleanPath[cleanPath.length - 1];
+      const diffLat = Math.abs(pt.lat() - prev.lat());
+      const diffLng = Math.abs(pt.lng() - prev.lng());
+      if (diffLat > 1e-7 || diffLng > 1e-7) {
+        cleanPath.push(pt);
+      }
+    }
+  });
+
+  if (cleanPath.length >= 3) {
+    // Instantiate actual Polygon with current zone colors
+    const polygon = new google.maps.Polygon({
+      paths: cleanPath,
       fillColor: zone.color,
       fillOpacity: 0.5,
       strokeColor: zone.color,
       strokeWeight: 3,
       clickable: true,
       editable: true,
-      zIndex: 1
-    }
-  });
+      zIndex: 1,
+      map: map
+    });
 
-  // Display drawing banner
-  document.getElementById('drawing-banner-text').textContent = `Drawing mode active: Draw boundaries for ${zone.name}. Click map to add vertices, double-click to complete.`;
-  document.getElementById('drawing-banner').classList.remove('hidden');
-}
-
-function cancelDrawingMode() {
-  state.isDrawing = false;
-  drawingManager.setDrawingMode(null);
-  document.getElementById('drawing-banner').classList.add('hidden');
-}
-
-/**
- * Handle Google DrawingManager complete event
- */
-function handlePolygonDrawComplete(polygon) {
-  const activeZone = state.zones.find(z => z.id === state.activeZoneId);
-  
-  if (!activeZone) {
-    // Fallback if no active zone somehow
-    polygon.setMap(null);
-    cancelDrawingMode();
-    return;
+    // Add to state and setup events
+    zone.polygons.push(polygon);
+    setupPolygonEvents(polygon, zone.id);
+    selectPolygon(polygon);
   }
 
-  // Add polygon instance to active zone
-  activeZone.polygons.push(polygon);
-  
-  // Bind events and context menu actions
-  setupPolygonEvents(polygon, activeZone.id);
-  selectPolygon(polygon);
-
-  // Reset Drawing Mode
+  // Exit drawing mode
   cancelDrawingMode();
 
-  // Render & Save state
+  // Save changes
   renderZones();
   saveZonesData();
 }

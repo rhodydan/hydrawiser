@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hydrawise Zone Mapper - Premium Irrigation Schematics</title>
   
+  <!-- Inline SVG Droplet Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>">
+  
   <!-- Modern Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -61,8 +64,8 @@
         <div id="setup-step-2" class="setup-step hidden">
           <p class="step-instruction">Enter your starting property address to center the satellite view:</p>
           <div class="form-group">
-            <label for="input-setup-address"><i class="fa-solid fa-house"></i> Starting Address</label>
-            <input type="text" id="input-setup-address" placeholder="Type property address..." autocomplete="off">
+            <span class="form-label"><i class="fa-solid fa-house"></i> Starting Address</span>
+            <gmp-place-autocomplete id="input-setup-address" placeholder="Type property address..." description="Starting Address"></gmp-place-autocomplete>
           </div>
           <div class="setup-warning-box">
             <i class="fa-solid fa-triangle-exclamation"></i>
@@ -145,15 +148,15 @@
         <div class="export-settings-panel">
           <h4>Export Engine Preferences</h4>
           <div class="engine-toggle-group">
-            <label class="engine-option active" id="engine-static-label">
-              <input type="radio" name="export-engine" value="static" checked>
+            <label class="engine-option active" id="engine-static-label" for="export-engine-static">
+              <input type="radio" id="export-engine-static" name="export-engine" value="static" checked>
               <div class="option-desc">
                 <strong>Static Map Render (Recommended)</strong>
                 <span>Renders a clean high-resolution blueprint using vectors and Google's static server. Eliminates grey squares and browser tiling artifacts.</span>
               </div>
             </label>
-            <label class="engine-option" id="engine-canvas-label">
-              <input type="radio" name="export-engine" value="canvas">
+            <label class="engine-option" id="engine-canvas-label" for="export-engine-canvas">
+              <input type="radio" id="export-engine-canvas" name="export-engine" value="canvas">
               <div class="option-desc">
                 <strong>Screen Capture (html2canvas)</strong>
                 <span>Takes a snapshot of your current browser window layout. Requires CORS compliance.</span>
@@ -171,15 +174,15 @@
           </div>
 
           <div class="export-options-grid">
-            <label class="checkbox-container">
+            <label class="checkbox-container" for="chk-show-legend">
               <input type="checkbox" id="chk-show-legend" checked>
               <span class="checkmark"></span> Include Legend Table
             </label>
-            <label class="checkbox-container">
+            <label class="checkbox-container" for="chk-show-north">
               <input type="checkbox" id="chk-show-north" checked>
               <span class="checkmark"></span> Include North Arrow
             </label>
-            <label class="checkbox-container">
+            <label class="checkbox-container" for="chk-show-area">
               <input type="checkbox" id="chk-show-area" checked>
               <span class="checkmark"></span> Show Coverage Area (sq ft)
             </label>
@@ -342,8 +345,8 @@
               </div>
             </div>
             <div class="form-group">
-              <label for="config-address"><i class="fa-solid fa-house"></i> Starting Address</label>
-              <input type="text" id="config-address" placeholder="Type starting address..." autocomplete="off">
+              <span class="form-label"><i class="fa-solid fa-house"></i> Starting Address</span>
+              <gmp-place-autocomplete id="config-address" placeholder="Type starting address..." description="Starting Address"></gmp-place-autocomplete>
             </div>
             <div class="button-group-stacked">
               <button id="btn-update-config" class="btn btn-primary btn-block">
@@ -409,7 +412,7 @@
       <!-- Float Search Address Bar -->
       <div class="floating-search">
         <i class="fa-solid fa-magnifying-glass search-icon"></i>
-        <input type="text" id="address-search-input" placeholder="Search property address..." disabled>
+        <gmp-place-autocomplete id="address-search-input" placeholder="Search property address..." description="Search property address" disabled></gmp-place-autocomplete>
         <button id="btn-clear-search" class="btn-icon hidden"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
@@ -417,9 +420,12 @@
       <div id="drawing-banner" class="drawing-banner hidden">
         <div class="banner-content">
           <span class="active-dot animate-pulse"></span>
-          <span id="drawing-banner-text">Drawing mode active: Click on map to add points. Double-click to close polygon.</span>
+          <span id="drawing-banner-text">Drawing mode active: Click on map to add points. Double-click or click the first point to close polygon.</span>
         </div>
-        <button id="btn-cancel-drawing" class="btn btn-sm btn-danger">Cancel Drawing</button>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button id="btn-finish-drawing" class="btn btn-sm btn-success hidden">Finish Shape</button>
+          <button id="btn-cancel-drawing" class="btn btn-sm btn-danger">Cancel Drawing</button>
+        </div>
       </div>
 
       <!-- Floating Map Navigation Controls -->
