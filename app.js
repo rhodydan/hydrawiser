@@ -1569,6 +1569,7 @@ function startDrawingMode(zoneId) {
     strokeColor: zone.color,
     strokeOpacity: 0.8,
     strokeWeight: 3,
+    clickable: false, // Ensure clicks pass through to the map click listener
     map: map
   });
 
