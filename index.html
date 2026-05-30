@@ -211,6 +211,8 @@
 
   <!-- Main Grid Layout -->
   <div class="app-layout">
+    <!-- Sidebar Backdrop (Mobile Drawer Close Handler) -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop hidden"></div>
     
     <!-- Sidebar Control Panel -->
     <aside class="sidebar">
@@ -408,6 +410,10 @@
 
     <!-- Map & Viewport Area -->
     <main class="map-viewport">
+      <!-- Sidebar Toggle Button (Mobile Only) -->
+      <button id="btn-toggle-sidebar" class="map-control-btn btn-toggle-sidebar" title="Toggle Menu">
+        <i class="fa-solid fa-bars"></i>
+      </button>
       
       <!-- Float Search Address Bar -->
       <div class="floating-search">

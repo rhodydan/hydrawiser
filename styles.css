@@ -1659,5 +1659,138 @@ gmp-place-autocomplete {
   font-size: 14px;
 }
 
+/* Sidebar Toggle Button (Hidden on Desktop, Visible on Mobile) */
+.btn-toggle-sidebar {
+  display: none !important;
+}
+
+/* Sidebar Backdrop (Overlay) styling */
+.sidebar-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar-backdrop.hidden {
+  display: none !important;
+}
+
+/* Mobile-Responsive Styling */
+@media (max-width: 768px) {
+  /* Toggle Menu Button Styling */
+  .btn-toggle-sidebar {
+    display: flex !important;
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 10;
+    width: 46px;
+    height: 46px;
+    border-radius: 8px;
+    background-color: var(--glass-bg);
+    backdrop-filter: blur(12px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-lg);
+    color: var(--text-main);
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  
+  .btn-toggle-sidebar:hover {
+    background-color: var(--accent-hover);
+    color: white;
+  }
+
+  /* Translate Sidebar to Drawer */
+  .sidebar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 85vw;
+    max-width: 320px;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* Floating Search bar spacing next to menu button */
+  .floating-search {
+    left: 16px;
+    right: 78px;
+    width: auto;
+  }
+
+  /* Relocate Zoom/Navigation Controls to bottom right */
+  .floating-map-controls {
+    top: auto;
+    bottom: 180px;
+    right: 16px;
+  }
+
+  /* Full Width Legend Overlay at bottom */
+  .map-legend-overlay {
+    bottom: 16px;
+    left: 16px;
+    right: 16px;
+    width: auto;
+    max-width: none;
+    padding: 12px;
+  }
+
+  .legend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .legend-header p {
+    margin-bottom: 0;
+  }
+
+  /* Responsive Drawing Banner */
+  .drawing-banner {
+    width: calc(100% - 32px);
+    left: 16px;
+    transform: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .drawing-banner .banner-content {
+    justify-content: center;
+  }
+
+  .drawing-banner div {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  /* Responsive Modal Windows */
+  .modal-content {
+    width: calc(100% - 32px) !important;
+    max-height: 90vh;
+    overflow-y: auto;
+    margin: 16px;
+  }
+}
+
 
 

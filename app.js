@@ -505,6 +505,21 @@ function bindAppEventListeners() {
     finishDrawingBtn.addEventListener('click', finishCustomDrawing);
   }
 
+  // Sidebar Mobile Toggle
+  const toggleSidebarBtn = document.getElementById('btn-toggle-sidebar');
+  if (toggleSidebarBtn) {
+    toggleSidebarBtn.addEventListener('click', () => {
+      toggleSidebar();
+    });
+  }
+
+  const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+  if (sidebarBackdrop) {
+    sidebarBackdrop.addEventListener('click', () => {
+      toggleSidebar(false);
+    });
+  }
+
   // Export controls
   document.getElementById('btn-export-trigger').addEventListener('click', openExportModal);
   document.getElementById('close-export-modal').addEventListener('click', () => toggleModal('export-modal', false));
@@ -1213,6 +1228,9 @@ function selectZone(zoneId) {
   }
 
   updatePolygonStyles();
+
+  // Auto-close sidebar drawer on mobile to reveal map view on selection
+  toggleSidebar(false);
 }
 
 /**
@@ -1363,6 +1381,20 @@ function hideContextMenu() {
   const menu = document.getElementById('map-context-menu');
   if (menu) {
     menu.classList.add('hidden');
+  }
+}
+
+/**
+ * Toggle the mobile slide-out sidebar drawer
+ */
+function toggleSidebar(forceState) {
+  const sidebar = document.querySelector('.sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  if (!sidebar) return;
+
+  const isOpen = sidebar.classList.toggle('open', forceState);
+  if (backdrop) {
+    backdrop.classList.toggle('hidden', !isOpen);
   }
 }
 
