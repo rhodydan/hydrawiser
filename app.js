@@ -1357,8 +1357,15 @@ function setupPolygonEvents(polygon, zoneId) {
   // Bind standard coordinates drag/edit listeners
   bindPolygonPathListeners(polygon, zoneId);
 
-  // Left click: Select zone and select polygon
+  let pressTimer = null;
+  let longPressActive = false;
+
+  // Left click: Select zone and select polygon (unless bypassed by long press)
   google.maps.event.addListener(polygon, 'click', (event) => {
+    if (longPressActive) {
+      longPressActive = false;
+      return;
+    }
     selectZone(zoneId);
     selectPolygon(polygon);
   });
@@ -1375,6 +1382,59 @@ function setupPolygonEvents(polygon, zoneId) {
       showContextMenu(event.domEvent.clientX, event.domEvent.clientY, polygon);
     }
   });
+
+  // Long press / Touch hold deletion
+  google.maps.event.addListener(polygon, 'mousedown', (event) => {
+    longPressActive = false;
+    if (pressTimer) clearTimeout(pressTimer);
+
+    pressTimer = setTimeout(() => {
+      longPressActive = true;
+      selectZone(zoneId);
+      selectPolygon(polygon);
+
+      // Trigger deletion confirmation after a micro-delay to let the event loop process state
+      setTimeout(() => {
+        if (confirm('Are you sure you want to delete this shape?')) {
+          deletePolygon(polygon);
+        }
+      }, 50);
+    }, 750);
+  });
+
+  // Cancel long press on release
+  google.maps.event.addListener(polygon, 'mouseup', () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+  });
+
+  // Cancel long press if user drags/pans
+  google.maps.event.addListener(polygon, 'dragstart', () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+  });
+
+  // Cancel long press if pointer leaves the polygon
+  google.maps.event.addListener(polygon, 'mouseout', () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+  });
+
+  // Cancel long press if map is panned
+  if (map) {
+    google.maps.event.addListener(map, 'dragstart', () => {
+      if (pressTimer) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+    });
+  }
 }
 
 /**
