@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hydrawise Zone Mapper - Premium Irrigation Schematics</title>
+  
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Custom Styling -->
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- html2canvas -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body class="dark-theme">
+
+  <!-- Global Diagnostic Error Panel (For Debugging) -->
+  <div id="global-error-panel" style="display:none; position:fixed; top:0; left:0; width:100%; background:#ef4444; color:white; padding:15px; z-index:99999; font-family:monospace; font-size:12px; box-shadow:0 4px 10px rgba(0,0,0,0.5);">
+    <strong style="font-size:14px;"><i class="fa-solid fa-bug"></i> Run-time Error Detected:</strong>
+    <pre id="global-error-message" style="margin-top:10px; white-space:pre-wrap; font-family: monospace;"></pre>
+    <button onclick="document.getElementById('global-error-panel').style.display='none'" style="margin-top:10px; padding:6px 12px; background:white; color:#ef4444; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Dismiss</button>
+  </div>
+
+  <!-- Setup Overlay (Displayed if API Key is not set) -->
+  <div id="setup-overlay" class="setup-overlay hidden">
+    <div class="setup-card">
+      <div class="setup-header">
+        <div class="logo">
+          <i class="fa-solid fa-droplet droplet-icon animate-pulse"></i>
+          <span>Hydrawise Zone Mapper</span>
+        </div>
+        <p>Generate high-resolution aerial schematics for your split-irrigation zones.</p>
+      </div>
+      <div class="setup-body">
+        <!-- Error Message Panel -->
+        <div id="setup-error-panel" class="setup-error-panel hidden">
+          <i class="fa-solid fa-circle-exclamation"></i>
+          <span id="setup-error-text">Failed to connect.</span>
+        </div>
+
+        <!-- Step 1: API Key Entry -->
+        <div id="setup-step-1" class="setup-step">
+          <div class="form-group">
+            <label for="input-api-key"><i class="fa-solid fa-key"></i> Google Maps API Key</label>
+            <input type="password" id="input-api-key" placeholder="AIzaSy..." autocomplete="off">
+            <span class="help-link-span">Need an API key? <a href="#" id="open-help-modal">Get Help & Console Links <i class="fa-solid fa-up-right-from-square"></i></a></span>
+          </div>
+          <button id="btn-connect-key" class="btn btn-primary btn-block">
+            Connect API Key <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+        
+        <!-- Step 2: Address Search Autocomplete -->
+        <div id="setup-step-2" class="setup-step hidden">
+          <p class="step-instruction">Enter your starting property address to center the satellite view:</p>
+          <div class="form-group">
+            <label for="input-setup-address"><i class="fa-solid fa-house"></i> Starting Address</label>
+            <input type="text" id="input-setup-address" placeholder="Type property address..." autocomplete="off">
+          </div>
+          <div class="setup-warning-box">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>If address autocomplete fails or shows an error, make sure the <strong>Places API</strong> and <strong>Maps JavaScript API</strong> are enabled in your Google Cloud project.</span>
+          </div>
+          <div class="button-group-row">
+            <button id="btn-setup-back" class="btn btn-secondary">
+              <i class="fa-solid fa-arrow-left"></i> Change Key
+            </button>
+            <button id="btn-setup-finish" class="btn btn-primary" disabled>
+              Start Mapping <i class="fa-solid fa-circle-check"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help Modal (API Key Retrieval Tutorial) -->
+  <div id="help-modal" class="modal hidden">
+    <div class="modal-backdrop" id="help-backdrop"></div>
+    <div class="modal-content help-modal-content">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-circle-info"></i> How to Get a Google Maps API Key</h3>
+        <button class="btn-close" id="close-help-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body markdown-style">
+        <p>Google Maps services require a Cloud Platform API Key with billing enabled. Follow these steps to set one up for free (Google offers $200 free monthly credits, which easily covers personal use):</p>
+        
+        <ol>
+          <li>
+            <strong>Open the Google Cloud Credentials Console:</strong>
+            <br>
+            Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" class="external-link">Google Cloud Credentials Console <i class="fa-solid fa-arrow-up-right-from-square"></i></a>. Select or create a project if prompted.
+          </li>
+          <li>
+            <strong>Create an API Key:</strong>
+            <br>
+            Click <span class="badge">+ Create Credentials</span> at the top, select <strong>API Key</strong>, and copy the generated key.
+          </li>
+          <li>
+            <strong>Enable Required Libraries:</strong>
+            <br>
+            To use all features of this application (map displays, drawing tools, address autocomplete, and high-res Static Map rendering), you must enable these 3 APIs in the <a href="https://console.cloud.google.com/apis/library" target="_blank" rel="noopener noreferrer" class="external-link">Google API Library <i class="fa-solid fa-arrow-up-right-from-square"></i></a>:
+            <ul>
+              <li><a href="https://console.cloud.google.com/apis/library/maps-backend.googleapis.com" target="_blank" rel="noopener noreferrer" class="external-link">Maps JavaScript API <i class="fa-solid fa-arrow-up-right-from-square"></i></a> (interactive canvas and drawing tools)</li>
+              <li><a href="https://console.cloud.google.com/apis/library/places-backend.googleapis.com" target="_blank" rel="noopener noreferrer" class="external-link">Places API <i class="fa-solid fa-arrow-up-right-from-square"></i></a> (address search bar autocomplete)</li>
+              <li><a href="https://console.cloud.google.com/apis/library/static-maps-backend.googleapis.com" target="_blank" rel="noopener noreferrer" class="external-link">Maps Static API <i class="fa-solid fa-arrow-up-right-from-square"></i></a> (high-resolution composite rendering engine)</li>
+            </ul>
+          </li>
+          <li>
+            <strong>Enable Billing:</strong>
+            <br>
+            Google requires active billing to allow loading map tiles. Make sure a billing account is linked to your project in the <a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener noreferrer" class="external-link">Billing Console <i class="fa-solid fa-arrow-up-right-from-square"></i></a>.
+          </li>
+        </ol>
+        
+        <div class="note-box warning-box">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <div>
+            <strong>Important Security Tip:</strong> If hosting this page publicly, restrict the API key in the Credentials Console. Under "API restrictions", select "Restrict key" and select only the three APIs mentioned above.
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-close-help-confirm">Got It</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Preview Modal -->
+  <div id="export-modal" class="modal hidden">
+    <div class="modal-backdrop" id="export-backdrop"></div>
+    <div class="modal-content export-modal-content">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-file-image"></i> Export Schematic Preview</h3>
+        <button class="btn-close" id="close-export-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body export-body">
+        <div class="export-settings-panel">
+          <h4>Export Engine Preferences</h4>
+          <div class="engine-toggle-group">
+            <label class="engine-option active" id="engine-static-label">
+              <input type="radio" name="export-engine" value="static" checked>
+              <div class="option-desc">
+                <strong>Static Map Render (Recommended)</strong>
+                <span>Renders a clean high-resolution blueprint using vectors and Google's static server. Eliminates grey squares and browser tiling artifacts.</span>
+              </div>
+            </label>
+            <label class="engine-option" id="engine-canvas-label">
+              <input type="radio" name="export-engine" value="canvas">
+              <div class="option-desc">
+                <strong>Screen Capture (html2canvas)</strong>
+                <span>Takes a snapshot of your current browser window layout. Requires CORS compliance.</span>
+              </div>
+            </label>
+          </div>
+          
+          <div class="form-group margin-top-15">
+            <label for="export-title-input">Schematic Title Block</label>
+            <input type="text" id="export-title-input" value="Hydrawise Irrigation Schematic">
+          </div>
+          <div class="form-group">
+            <label for="export-subtitle-input">Subtitle/Address</label>
+            <input type="text" id="export-subtitle-input" placeholder="e.g., 123 Maple Street (Front & Backyard Zones)">
+          </div>
+
+          <div class="export-options-grid">
+            <label class="checkbox-container">
+              <input type="checkbox" id="chk-show-legend" checked>
+              <span class="checkmark"></span> Include Legend Table
+            </label>
+            <label class="checkbox-container">
+              <input type="checkbox" id="chk-show-north" checked>
+              <span class="checkmark"></span> Include North Arrow
+            </label>
+            <label class="checkbox-container">
+              <input type="checkbox" id="chk-show-area" checked>
+              <span class="checkmark"></span> Show Coverage Area (sq ft)
+            </label>
+          </div>
+        </div>
+
+        <div class="export-preview-canvas-container">
+          <div class="preview-spinner" id="preview-spinner">
+            <i class="fa-solid fa-circle-notch fa-spin"></i> Generating preview...
+          </div>
+          <img id="export-preview-img" class="hidden" alt="Export schematic preview">
+          <div id="export-preview-error" class="hidden">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <p>Failed to generate export preview. Try changing the Export Engine or checking your connection.</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-cancel-export">Cancel</button>
+        <button class="btn btn-primary" id="btn-download-schematic">
+          <i class="fa-solid fa-download"></i> Download JPEG
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Grid Layout -->
+  <div class="app-layout">
+    
+    <!-- Sidebar Control Panel -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <i class="fa-solid fa-droplet droplet-icon"></i>
+          <h2>Hydrawiser</h2>
+        </div>
+        <span class="tagline">Hydrawise Zone Mapper</span>
+      </div>
+
+      <div class="sidebar-body">
+        
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+          <button class="tab-btn active" id="tab-zones-btn"><i class="fa-solid fa-layer-group"></i> Zones</button>
+          <button class="tab-btn" id="tab-config-btn"><i class="fa-solid fa-gears"></i> Setup</button>
+        </div>
+
+        <!-- Zones Panel -->
+        <div class="tab-panel active" id="panel-zones">
+          
+          <div class="panel-section">
+            <div class="section-title-row">
+              <h3>Irrigation Zones</h3>
+              <button id="btn-add-zone" class="btn btn-sm btn-success">
+                <i class="fa-solid fa-plus"></i> Add Zone
+              </button>
+            </div>
+            <p class="section-desc">Create zones and draw multiple polygons to map split layouts (e.g. front + back on same zone).</p>
+            
+            <!-- Hydrawise API Sync Collapsible Panel -->
+            <div class="hydrawise-sync-container">
+              <button id="btn-toggle-sync" class="btn-sync-toggle">
+                <span><i class="fa-solid fa-cloud-arrow-down"></i> Import from Hydrawise Account</span>
+                <i class="fa-solid fa-chevron-down toggle-icon"></i>
+              </button>
+              
+              <div id="sync-panel-content" class="sync-panel-content collapsed">
+                <p class="sync-explanation">Import zones using your Developer API Key. Supports accounts with multiple controllers.</p>
+                <div class="form-group">
+                  <label for="hydrawise-api-key">Developer API Key</label>
+                  <input type="password" id="hydrawise-api-key" placeholder="Paste Hydrawise API Key..." autocomplete="off">
+                </div>
+
+                <!-- Controller Selector Dropdown -->
+                <div id="hydrawise-controller-select-group" class="form-group hidden">
+                  <label for="hydrawise-controller-select">Select Controller</label>
+                  <select id="hydrawise-controller-select">
+                    <!-- Populated via JS -->
+                  </select>
+                </div>
+
+                <div class="button-group-row">
+                  <button id="btn-fetch-hydrawise-controllers" class="btn btn-secondary btn-sm">
+                    <i class="fa-solid fa-server"></i> Fetch Controllers
+                  </button>
+                  <button id="btn-fetch-hydrawise" class="btn btn-primary btn-sm" disabled>
+                    <i class="fa-solid fa-cloud"></i> Fetch Zones
+                  </button>
+                </div>
+                
+                <div class="divider">OR PASTE RAW JSON</div>
+                
+                <div class="form-group">
+                  <label for="hydrawise-json-input" id="lbl-json-input">Raw JSON Input</label>
+                  <textarea id="hydrawise-json-input" placeholder="Paste JSON response from API link here..." rows="3"></textarea>
+                </div>
+
+                <div class="button-group-row">
+                  <button id="btn-parse-controllers" class="btn btn-secondary btn-sm">
+                    <i class="fa-solid fa-server"></i> Parse Controllers
+                  </button>
+                  <button id="btn-import-json" class="btn btn-success btn-sm" disabled>
+                    <i class="fa-solid fa-file-import"></i> Parse & Import
+                  </button>
+                </div>
+                
+                <div class="sync-instructions">
+                  <strong>Instructions:</strong>
+                  <ol id="sync-steps-list">
+                    <li id="sync-step-info-1">Retrieve your API Key from Hydrawise (Account Details > Developer API).</li>
+                    <li id="sync-step-info-2">Open this URL in a new tab:
+                      <a href="#" id="hydrawise-api-controllers-link" target="_blank" rel="noopener noreferrer" class="external-link hidden">Get Controllers JSON <i class="fa-solid fa-up-right-from-square"></i></a>
+                      <br>Copy the text, paste it into the "Raw JSON Input" box above, and click <strong>Parse Controllers</strong>.
+                    </li>
+                    <li id="sync-step-info-3" class="hidden">Select your active controller in the dropdown, then open this URL:
+                      <a href="#" id="hydrawise-api-zones-link" target="_blank" rel="noopener noreferrer" class="external-link">Get Zones JSON <i class="fa-solid fa-up-right-from-square"></i></a>
+                      <br>Copy the text, paste it into the "Raw JSON Input" box, and click <strong>Parse & Import</strong>.
+                    </li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+
+            <!-- Zone list -->
+            <div id="zone-list" class="zone-list">
+              <!-- Dynamically populated -->
+              <div class="empty-list-message" id="empty-zones-prompt">
+                <i class="fa-solid fa-object-group"></i>
+                <p>No zones configured yet. Click "Add Zone" or use the import option above to start.</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="panel-section stats-section border-top">
+            <div class="stats-row">
+              <span>Total Mapped Area:</span>
+              <strong id="total-area-val">0 sq ft</strong>
+            </div>
+            <div class="unit-toggle-row">
+              <span>Measurement Unit:</span>
+              <div class="toggle-switch">
+                <button id="btn-unit-sqft" class="unit-btn active">SQ FT</button>
+                <button id="btn-unit-sqm" class="unit-btn">M²</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Setup Configuration Panel -->
+        <div class="tab-panel" id="panel-config">
+          <div class="panel-section">
+            <h3>Google Maps API Key</h3>
+            <p class="section-desc">Manage API credentials and starting location stored in your browser.</p>
+            
+            <div class="form-group">
+              <label for="config-api-key"><i class="fa-solid fa-key"></i> Key</label>
+              <div class="input-with-button">
+                <input type="password" id="config-api-key" placeholder="API Key">
+                <button id="btn-toggle-key-visibility" class="btn-icon"><i class="fa-solid fa-eye"></i></button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="config-address"><i class="fa-solid fa-house"></i> Starting Address</label>
+              <input type="text" id="config-address" placeholder="Type starting address..." autocomplete="off">
+            </div>
+            <div class="button-group-stacked">
+              <button id="btn-update-config" class="btn btn-primary btn-block">
+                <i class="fa-solid fa-floppy-disk"></i> Update Config
+              </button>
+              <button id="btn-open-help-config" class="btn btn-link btn-block">
+                <i class="fa-solid fa-circle-question"></i> View Key Setup Guide
+              </button>
+            </div>
+          </div>
+          
+          <div class="panel-section border-top">
+            <h3>Map Image Adjustments</h3>
+            <p class="section-desc">Tune the background imagery to make drawings pop.</p>
+            
+            <div class="form-group">
+              <label for="map-filter-grayscale">Grayscale: <span id="val-grayscale">0%</span></label>
+              <input type="range" id="map-filter-grayscale" min="0" max="100" value="0" class="slider-control">
+            </div>
+            
+            <div class="form-group">
+              <label for="map-filter-saturation">Chroma (Saturation): <span id="val-saturation">100%</span></label>
+              <input type="range" id="map-filter-saturation" min="0" max="300" value="100" class="slider-control">
+            </div>
+            
+            <div class="form-group">
+              <label for="map-filter-opacity">Opacity: <span id="val-opacity">100%</span></label>
+              <input type="range" id="map-filter-opacity" min="10" max="100" value="100" class="slider-control">
+            </div>
+            
+            <div class="form-group">
+              <label for="map-filter-blur">Blur: <span id="val-blur">0px</span></label>
+              <input type="range" id="map-filter-blur" min="0" max="10" value="0" step="0.5" class="slider-control">
+            </div>
+
+            <button id="btn-reset-map-filters" class="btn btn-secondary btn-sm btn-block">
+              <i class="fa-solid fa-rotate-left"></i> Reset Adjustments
+            </button>
+          </div>
+
+          <div class="panel-section border-top">
+            <h3>Reset Data</h3>
+            <p class="section-desc">Clear all zones, drawings, and start fresh.</p>
+            <button id="btn-clear-all" class="btn btn-danger btn-block">
+              <i class="fa-solid fa-trash-can"></i> Clear All Zones & Shapes
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Sidebar Footer -->
+      <div class="sidebar-footer">
+        <button id="btn-export-trigger" class="btn btn-primary btn-lg btn-block" disabled>
+          <i class="fa-solid fa-file-image"></i> Configure & Export Image
+        </button>
+      </div>
+    </aside>
+
+    <!-- Map & Viewport Area -->
+    <main class="map-viewport">
+      
+      <!-- Float Search Address Bar -->
+      <div class="floating-search">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input type="text" id="address-search-input" placeholder="Search property address..." disabled>
+        <button id="btn-clear-search" class="btn-icon hidden"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <!-- Drawing Mode Banner (Appears when drawing is active) -->
+      <div id="drawing-banner" class="drawing-banner hidden">
+        <div class="banner-content">
+          <span class="active-dot animate-pulse"></span>
+          <span id="drawing-banner-text">Drawing mode active: Click on map to add points. Double-click to close polygon.</span>
+        </div>
+        <button id="btn-cancel-drawing" class="btn btn-sm btn-danger">Cancel Drawing</button>
+      </div>
+
+      <!-- Floating Map Navigation Controls -->
+      <div class="floating-map-controls">
+        <button id="btn-zoom-in" class="map-control-btn" title="Zoom In (Key: +)"><i class="fa-solid fa-plus"></i></button>
+        <button id="btn-zoom-out" class="map-control-btn" title="Zoom Out (Key: -)"><i class="fa-solid fa-minus"></i></button>
+        <button id="btn-recenter" class="map-control-btn" title="Recenter Map"><i class="fa-solid fa-crosshairs"></i></button>
+        <button id="btn-zoom-fit" class="map-control-btn" title="Zoom to Fit All Shapes"><i class="fa-solid fa-expand"></i></button>
+      </div>
+
+      <!-- Google Map Container -->
+      <div id="map-container-wrapper" class="map-container-wrapper">
+        <div id="map"></div>
+        
+        <!-- Legend Overlay (Visible on Map UI and captured by html2canvas) -->
+        <div id="map-legend-overlay" class="map-legend-overlay hidden">
+          <div class="legend-header">
+            <h4 id="legend-overlay-title">Hydrawise Schematic</h4>
+            <p id="legend-overlay-subtitle">Address Placeholder</p>
+          </div>
+          <table class="legend-table" id="legend-overlay-table">
+            <thead>
+              <tr>
+                <th width="40%">Zone</th>
+                <th width="30%">Type</th>
+                <th width="30%" class="text-right">Area</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Populated via JS -->
+            </tbody>
+          </table>
+          <div class="legend-footer">
+            <span>Powered by Hydrawiser</span>
+            <span id="legend-north-indicator"><i class="fa-solid fa-arrow-up"></i> N</span>
+          </div>
+        </div>
+      </div>
+      
+    </main>
+  </div>
+
+  <!-- Client-side Application Scripts -->
+  <script src="app.js?v=5"></script>
+</body>
+</html>
