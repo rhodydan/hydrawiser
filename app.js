@@ -505,6 +505,16 @@ function bindAppEventListeners() {
     finishDrawingBtn.addEventListener('click', finishCustomDrawing);
   }
 
+  // Floating Draw Button Click (for mobile users)
+  const floatingDrawBtn = document.getElementById('btn-floating-draw');
+  if (floatingDrawBtn) {
+    floatingDrawBtn.addEventListener('click', () => {
+      if (state.activeZoneId) {
+        startDrawingMode(state.activeZoneId);
+      }
+    });
+  }
+
   // Sidebar Mobile Toggle
   const toggleSidebarBtn = document.getElementById('btn-toggle-sidebar');
   if (toggleSidebarBtn) {
@@ -1231,6 +1241,9 @@ function selectZone(zoneId) {
 
   // Auto-close sidebar drawer on mobile to reveal map view on selection
   toggleSidebar(false);
+
+  // Update floating draw button UI
+  updateFloatingDrawButtonUI();
 }
 
 /**
@@ -1249,6 +1262,26 @@ function updatePolygonStyles() {
       });
     });
   });
+}
+
+/**
+ * Update the visibility and content of the mobile/desktop floating draw button
+ */
+function updateFloatingDrawButtonUI() {
+  const btn = document.getElementById('btn-floating-draw');
+  if (!btn) return;
+
+  if (state.activeZoneId && !state.isDrawing) {
+    const activeZone = state.zones.find(z => z.id === state.activeZoneId);
+    if (activeZone) {
+      btn.innerHTML = `<i class="fa-solid fa-draw-polygon"></i> Draw Shape (${activeZone.name})`;
+      btn.classList.remove('hidden');
+    } else {
+      btn.classList.add('hidden');
+    }
+  } else {
+    btn.classList.add('hidden');
+  }
 }
 
 /**
@@ -1491,8 +1524,15 @@ function startDrawingMode(zoneId) {
   customDrawing.listeners.push(dblclickListener);
 
   // Display drawing banner
-  document.getElementById('drawing-banner-text').textContent = `Drawing mode active: Draw boundaries for ${zone.name}. Click map to add vertices, double-click or click the first point to complete.`;
+  const isMobile = window.innerWidth <= 768;
+  const instructionText = isMobile
+    ? `Drawing mode active: Draw boundaries for ${zone.name}. Tap map to add vertices. Tap 'Finish Shape' or the first point to complete.`
+    : `Drawing mode active: Draw boundaries for ${zone.name}. Click map to add vertices, double-click or click the first point to complete.`;
+  document.getElementById('drawing-banner-text').textContent = instructionText;
   document.getElementById('drawing-banner').classList.remove('hidden');
+
+  // Update floating draw button UI
+  updateFloatingDrawButtonUI();
 }
 
 /**
@@ -1530,6 +1570,9 @@ function cancelDrawingMode() {
 
   customDrawing.path = [];
   customDrawing.zoneId = null;
+
+  // Update floating draw button UI
+  updateFloatingDrawButtonUI();
 }
 
 /**
@@ -1885,6 +1928,9 @@ function renderZones() {
 
   // Update Interactive Map overlay legend
   updateMapLegendUI(totalAreaSqM);
+
+  // Update floating draw button UI
+  updateFloatingDrawButtonUI();
 }
 
 /**

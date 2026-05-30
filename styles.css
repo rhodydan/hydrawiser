@@ -1748,6 +1748,9 @@ gmp-place-autocomplete {
     width: auto;
     max-width: none;
     padding: 12px;
+    max-height: 95px;
+    overflow-y: auto;
+    pointer-events: auto; /* Allow scrolling overlay on touch screens */
   }
 
   .legend-header {
@@ -1789,6 +1792,52 @@ gmp-place-autocomplete {
     max-height: 90vh;
     overflow-y: auto;
     margin: 16px;
+  }
+}
+
+/* Floating Draw Action Button */
+.floating-draw-btn {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  background-color: var(--accent-success);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  padding: 12px 24px;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  pointer-events: auto;
+}
+
+.floating-draw-btn:hover {
+  background-color: #059669;
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+}
+
+.floating-draw-btn:active {
+  transform: translateX(-50%) translateY(0);
+}
+
+.floating-draw-btn.hidden {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .floating-draw-btn {
+    bottom: 120px; /* Positioned cleanly above bottom legend */
+    font-size: 13px;
+    padding: 10px 20px;
   }
 }
 
