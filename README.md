@@ -8,9 +8,9 @@ Because many properties feature split-irrigation zones (such as a single zone co
 
 ## App Previews
 
-| Desktop Dashboard | Export Preview | Mobile Version |
-| :---: | :---: | :---: |
-| ![Desktop Dashboard](image1.png) | ![Export Preview](image2.png) | ![Mobile Version](image3_mobile.png) |
+| Draw Zones | Modify Base Map | Export Preview | Mobile Version |
+| :---: | :---: | :---: | :---: |
+| ![Draw Zones](image2.png) | ![Modify Base Map](image1.png) | ![Export Preview](image4.png) | ![Mobile Version](image3_mobile.png) |
 
 ---
 
