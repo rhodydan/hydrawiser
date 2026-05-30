@@ -35,7 +35,8 @@ const state = {
   mapGrayscale: 0,
   mapSaturation: 100,
   mapOpacity: 100,
-  mapBlur: 0
+  mapBlur: 0,
+  selectedPolygon: null
 };
 
 // Global Maps references
@@ -323,6 +324,12 @@ function setupApplication() {
         stylers: [{ visibility: 'on' }]
       }
     ]
+  });
+
+  // Deselect polygon and hide context menu when clicking empty map areas
+  google.maps.event.addListener(map, 'click', () => {
+    selectPolygon(null);
+    hideContextMenu();
   });
 
   // Setup Address Autocomplete
@@ -616,7 +623,7 @@ function bindAppEventListeners() {
     }
   });
 
-  // Global Keyboard Shortcuts for Zooming
+  // Global Keyboard Shortcuts
   window.addEventListener('keydown', (e) => {
     // Only capture if user is not typing in an input or textarea
     const activeEl = document.activeElement;
@@ -624,11 +631,16 @@ function bindAppEventListeners() {
       return;
     }
 
-    if (map) {
-      if (e.key === '+' || e.key === '=') {
-        map.setZoom(map.getZoom() + 1);
-      } else if (e.key === '-') {
-        map.setZoom(map.getZoom() - 1);
+    if (e.key === '+' || e.key === '=') {
+      if (map) map.setZoom(map.getZoom() + 1);
+    } else if (e.key === '-') {
+      if (map) map.setZoom(map.getZoom() - 1);
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (state.selectedPolygon) {
+        e.preventDefault();
+        if (confirm('Are you sure you want to delete the selected shape?')) {
+          deletePolygon(state.selectedPolygon);
+        }
       }
     }
   });
@@ -892,6 +904,12 @@ function bindAppEventListeners() {
       console.error(e);
       alert('Failed to parse JSON. Please make sure you copied the entire text content from the link.');
     }
+  // Hide context menu on click anywhere on the page
+  document.addEventListener('click', (e) => {
+    const menu = document.getElementById('map-context-menu');
+    if (menu && !menu.contains(e.target)) {
+      hideContextMenu();
+    }
   });
 }
 
@@ -1140,17 +1158,152 @@ function selectZone(zoneId) {
     }
   });
 
-  // Highlight polygons on the map
+  // Reset selected polygon if it doesn't belong to the newly selected zone
+  if (state.selectedPolygon) {
+    const parentZone = state.zones.find(z => z.polygons.includes(state.selectedPolygon));
+    if (!parentZone || parentZone.id !== zoneId) {
+      state.selectedPolygon = null;
+    }
+  }
+
+  updatePolygonStyles();
+}
+
+/**
+ * Update visual options of all polygons on the map based on active zone and selection
+ */
+function updatePolygonStyles() {
   state.zones.forEach(z => {
-    const isActive = z.id === zoneId;
+    const isActive = z.id === state.activeZoneId;
     z.polygons.forEach(polygon => {
+      const isSelected = polygon === state.selectedPolygon;
       polygon.setOptions({
-        strokeWeight: isActive ? 3 : 1.5,
-        fillOpacity: isActive ? 0.5 : 0.3,
-        editable: isActive // Only the active zone polygons can be edited/reshaped
+        strokeColor: isSelected ? '#ffffff' : z.color,
+        strokeWeight: isSelected ? 5 : (isActive ? 3 : 1.5),
+        fillOpacity: isSelected ? 0.65 : (isActive ? 0.5 : 0.3),
+        editable: isActive // Only active zone polygons are editable
       });
     });
   });
+}
+
+/**
+ * Set a specific polygon as selected and highlight it
+ */
+function selectPolygon(polygon) {
+  if (state.selectedPolygon === polygon) return;
+
+  state.selectedPolygon = polygon;
+
+  if (polygon) {
+    const parentZone = state.zones.find(z => z.polygons.includes(polygon));
+    if (parentZone && state.activeZoneId !== parentZone.id) {
+      selectZone(parentZone.id);
+    } else {
+      updatePolygonStyles();
+    }
+  } else {
+    updatePolygonStyles();
+  }
+}
+
+/**
+ * Delete a polygon from the map and state
+ */
+function deletePolygon(polygon) {
+  if (!polygon) return;
+
+  // Remove from map
+  polygon.setMap(null);
+
+  // Remove from state
+  state.zones.forEach(z => {
+    const idx = z.polygons.indexOf(polygon);
+    if (idx > -1) {
+      z.polygons.splice(idx, 1);
+    }
+  });
+
+  if (state.selectedPolygon === polygon) {
+    state.selectedPolygon = null;
+  }
+
+  // Hide context menu
+  hideContextMenu();
+
+  // Save changes
+  renderZones();
+  saveZonesData();
+
+  // Update export preview if open
+  const exportModal = document.getElementById('export-modal');
+  if (exportModal && !exportModal.classList.contains('hidden')) {
+    triggerPreviewGeneration();
+  }
+}
+
+/**
+ * Bind standard path modification listeners, click selection, and right-click context menu
+ */
+function setupPolygonEvents(polygon, zoneId) {
+  // Bind standard coordinates drag/edit listeners
+  bindPolygonPathListeners(polygon, zoneId);
+
+  // Left click: Select zone and select polygon
+  google.maps.event.addListener(polygon, 'click', (event) => {
+    selectZone(zoneId);
+    selectPolygon(polygon);
+  });
+
+  // Right click: Select zone, select polygon, show context menu
+  google.maps.event.addListener(polygon, 'rightclick', (event) => {
+    if (event.domEvent) {
+      event.domEvent.preventDefault();
+      event.domEvent.stopPropagation();
+      
+      selectZone(zoneId);
+      selectPolygon(polygon);
+      
+      showContextMenu(event.domEvent.clientX, event.domEvent.clientY, polygon);
+    }
+  });
+}
+
+/**
+ * Display the custom map context menu at the mouse cursor
+ */
+function showContextMenu(x, y, polygon) {
+  const menu = document.getElementById('map-context-menu');
+  if (!menu) return;
+
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+  menu.classList.remove('hidden');
+
+  const deleteBtn = document.getElementById('btn-context-delete');
+  if (deleteBtn) {
+    // Clone and replace to flush previous click listeners
+    const newDeleteBtn = deleteBtn.cloneNode(true);
+    deleteBtn.parentNode.replaceChild(newDeleteBtn, deleteBtn);
+    
+    newDeleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hideContextMenu();
+      if (confirm('Are you sure you want to delete this shape?')) {
+        deletePolygon(polygon);
+      }
+    });
+  }
+}
+
+/**
+ * Hide the custom map context menu
+ */
+function hideContextMenu() {
+  const menu = document.getElementById('map-context-menu');
+  if (menu) {
+    menu.classList.add('hidden');
+  }
 }
 
 /**
@@ -1204,13 +1357,9 @@ function handlePolygonDrawComplete(polygon) {
   // Add polygon instance to active zone
   activeZone.polygons.push(polygon);
   
-  // Bind standard polygon editing listeners
-  bindPolygonPathListeners(polygon, activeZone.id);
-  
-  // Bind click listener on polygon to select zone
-  google.maps.event.addListener(polygon, 'click', () => {
-    selectZone(activeZone.id);
-  });
+  // Bind events and context menu actions
+  setupPolygonEvents(polygon, activeZone.id);
+  selectPolygon(polygon);
 
   // Reset Drawing Mode
   cancelDrawingMode();
@@ -1629,13 +1778,8 @@ function loadSavedZones() {
           map: serialized.visible ? map : null
         });
 
-        // Add coordinate manipulation listeners
-        bindPolygonPathListeners(polygon, serialized.id);
-        
-        // Add select trigger
-        google.maps.event.addListener(polygon, 'click', () => {
-          selectZone(serialized.id);
-        });
+        // Add path, click, and right-click event listeners
+        setupPolygonEvents(polygon, serialized.id);
 
         polygons.push(polygon);
       });

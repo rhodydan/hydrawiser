@@ -1582,4 +1582,55 @@ textarea:focus {
   display: none !important;
 }
 
+/* Custom Map Context Menu */
+.map-context-menu {
+  position: fixed;
+  z-index: 1000;
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-lg);
+  border-radius: 6px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  min-width: 130px;
+}
+
+.map-context-menu.hidden {
+  display: none !important;
+}
+
+.context-menu-item {
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-main);
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.15s ease, color 0.15s;
+}
+
+.context-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.context-menu-item.btn-danger {
+  color: #f87171;
+}
+
+.context-menu-item.btn-danger:hover {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+
 
